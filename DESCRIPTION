@@ -1,0 +1,12 @@
+Encoding: UTF-8
+Package: eha2
+Title: Event History Analysis
+Version: 0.0.0.9000
+Authors@R: "Göran Broström <goran.brostrom@umu.se> [aut, cre]"
+Description: Sampling of risk sets in Cox regression,
+    selections in the Lexis diagram,
+Depends: R (>= 3.1.2)
+Imports: survival (>= 2.37-6)
+License: GPL (>= 3)
+LazyData: true
+Suggests: testthat

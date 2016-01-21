@@ -1,4 +1,46 @@
-
+#' Parametric Proportional Hazards Regression
+#'
+#'Proportional hazards model with parametric baseline hazard(s). Allows for
+#'stratification with different scale and shape in each stratum, and left
+#'truncated and right censored data.
+#'
+#' @param formula a formula object, with the response on the left of
+#' a ~ operator, and the terms on the right. The response must be a survival
+#' object as returned by the \code{Surv} function.
+#' @param data a data.frame in which to interpret the variables named in
+#' the formula.
+#' @param na.action a missing-data filter function, applied to the model.frame,
+#' after any subset argument has been used. Default is options()$na.action.
+#' @param dist Which distribution? Default is "weibull", with the alternatives
+#'  "ev" (Extreme value), and "pch" (piecewise constant hazards function).
+#'  A special case like the exponential can be obtained by choosing "weibull"
+#'  in combination with shape = 1, or "pch" without cuts.
+#' @param cuts Only used with dist = "pch". Specifies the points in time where
+#'  the hazard function jumps. If omitted, an exponential model is fitted.
+#' @param init vector of initial values of the iteration. Default initial
+#' value is zero for all variables.
+#' @param shape If positive, the shape parameter is fixed at that value
+#' (in each stratum). If zero or negative, the shape parameter is estimated.
+#' If more than one stratum is present in data, each stratum gets its own
+#' estimate.
+#' @param control a list with components eps (convergence criterion),
+#' maxiter (maximum number of iterations), and silent (logical,
+#' controlling amount of output). You can change any component without
+#' mention the other(s).
+#' @param singular.ok  Not used.
+#' @param model Not used.
+#' @param x Return the design matrix in the model object?
+#' Default is \code{FALSE}
+#' @param y Return the response in the model object? Default is \code{TRUE}.
+#'
+#' @return A list of class "phreg"
+#'
+#' @note The \code{gompertz} distribution is not included here.
+#' @author Göran Broström
+#' @examples
+#' fit <- phreg(Surv(enter, exti, event) ~ ses, data = mort)
+#' fit
+#' @export
 phreg <- function (formula = formula(data),
                    data = parent.frame(),
                    na.action = getOption("na.action"),
@@ -7,14 +49,13 @@ phreg <- function (formula = formula(data),
                    init,
                    shape = 0,
                    ## 0 means shape is estimated; > 0 fixed!
-                   param = c("canonical", "rate"), # For Gompertz
+                   ## param = c("canonical", "rate"), # Gompertz which removed
                    control = list(eps = 1e-8, maxiter = 20, trace = FALSE),
                    singular.ok = TRUE,
                    model = FALSE,
                    x = FALSE,
                    y = TRUE)
 {
-    param <- param[1]
     pfixed <- any(shape > 0)
     call <- match.call()
     m <- match.call(expand.dots = FALSE)
@@ -154,7 +195,7 @@ phreg <- function (formula = formula(data),
         }
     }
 
-    if (center){
+    if (FALSE){
         X.means <- colMeans(X)
         X.means[isI] <- 0
     }else{
@@ -175,7 +216,7 @@ phreg <- function (formula = formula(data),
     if (n.events == 0) stop("No events; no sense in continuing!")
     if (missing(init)){ # Is this wise?
         if (ncov){
-            init <- coxreg(formula, data = data)$coefficients
+            init <- rep(0, NCOL(X)) # coxreg(formula, data = data)$coefficients
         }else{
              init <- numeric(0)
          }
@@ -187,27 +228,8 @@ phreg <- function (formula = formula(data),
     }else{
         stop("control must be a list")
     }
-    if (dist == "gompertz"){
-        if (param == "canonical"){
 
-            fit <- gompreg(X,
-                           Y,
-                           strats,
-                           offset,
-                           init,
-                           control)
-        }else if (param == "rate"){
-            fit <- gompregRate(X,
-                               Y,
-                               strats,
-                               offset,
-                               init,
-                               control)
-        }else{
-            stop(paste(param, " is not a known parametrization."))
-        }
-
-        }else if(dist == "pch"){
+        if(dist == "pch"){
             if (missing(cuts)){
                 ##stop("'dist = pch' needs 'cuts' to be set")
                 cuts <- numeric(0) # Exponential distribution(s)
@@ -225,8 +247,7 @@ phreg <- function (formula = formula(data),
                            offset,
                            strats,
                            init,
-                           control,
-                           center)
+                           control)
     }else{
         fit <- phreg.fit(X,
                          Y,
@@ -235,8 +256,7 @@ phreg <- function (formula = formula(data),
                          offset,
                          init,
                          shape,
-                         control,
-                         center)
+                         control)
     }
 
     if (fit$fail){
@@ -254,7 +274,7 @@ phreg <- function (formula = formula(data),
     }
     ##score <- exp(lp)
 
-    fit$center <- center
+    ##fit$center <- center # Kolla!!
 
     if (!fit$fail){
         fit$fail <- NULL

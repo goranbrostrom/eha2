@@ -1,3 +1,26 @@
+#' Parametric proportional hazards regression
+#'
+#' This function is called by \code{\link{phreg}}, but it can also be directly called by
+#' a user.
+#'
+#' @param X The design (covariate) matrix.
+#' @param Y A survival object, the response.
+#' @param dist Which baseline distribution?
+#' @param strata A stratum variable.
+#' @param offset Offset.
+#' @param init Initial regression parameter values.
+#' @param shape If positive, a fixed value of the shape parameter in the
+#'    distribution. Otherwise, the shape is estimated.If positive,
+#'    a fixed value of the shape parameter in the
+#'    distribution. Otherwise, the shape is estimated.
+#' @param control Controls convergence and output.
+#'
+#' @return A list
+#' @seealso \code{\link{phreg}}.
+#' @author Göran Broström
+#' @export
+#' @useDynLib eha2
+
 phreg.fit <- function(X,
                       Y,
                       dist,
@@ -5,37 +28,20 @@ phreg.fit <- function(X,
                       offset,
                       init,
                       shape,
-                      control,
-                      center = NULL){# This 'center' not used.
+                      control){
 
-    if (dist == "weibull"){
+    if (dist == "weibull"){ # lognormal and loglogistic moved out.
         dis <- 0
         center <- TRUE
         intercept <- FALSE
-    }else if(dist == "loglogistic"){
-        dis <- 1
-        center <- FALSE
-        intercept <- TRUE
-        ##namn <- colnames(X)
-        ##X <- cbind(rep(1, NROW(X)), X)
-        ##colnames(X) <- c("(Intercept)", namn)
-        if (!missing(init)) init <- c(0, init)
-    }else if (dist == "lognormal"){
-        dis <- 2
-        center <- FALSE
-        intercept <- TRUE
-        ##namn <- colnames(X)
-        ##X <- cbind(rep(1, NROW(X)), X)
-        ##colnames(X) <- c("(Intercept)", namn) 
-        if (!missing(init)) init <- c(0, init)
     }else if (dist == "ev"){
         dis <- 3
         center <- TRUE
         intercept <- FALSE
     }else if (dist == "gompertz"){
-        stop("phreg.fit cannot be used with 'gompertz', try 'gompreg'")
+        stop("phreg.fit cannot be used with 'gompertz', try 'phgomp'")
     }else if (dist == "pch"){
-        stop("phreg.fit cannot be used with 'pch', try 'pchreg'")
+        stop("phreg.fit cannot be used with 'pch', try 'pchreg.fit'")
     }else{
         stop(paste(dist, "is not an implemented distribution"))
     }
@@ -43,7 +49,7 @@ phreg.fit <- function(X,
     nn <- NROW(X)
     ncov <- NCOL(X)
 
-    
+
     ## Should we really have _weighted_ means? Yes! (Cf. coxreg.fit)
     if (ncov && center){
         wts <- Y[, 2] - Y[, 1]
@@ -121,7 +127,7 @@ phreg.fit <- function(X,
                   conver = integer(1),
                   fail = integer(1),
                   ## DUP = FALSE,
-                  PACKAGE = "eha"
+                  PACKAGE = "eha2"
                   )
 
         if (fit$fail) return(list(fail = fit$fail,
@@ -208,7 +214,7 @@ phreg.fit <- function(X,
                   conver = integer(1),
                   fail = integer(1),
                   ## DUP = FALSE,
-                  PACKAGE = "eha"
+                  PACKAGE = "eha2"
                   )
         if (fit$fail) return(list(fail = fit$fail,
                                   n.strata = ns,

@@ -10,7 +10,12 @@ Description: Sampling of risk sets in Cox regression,
     of distributions, piecewise constant hazards and discrete-time models.
     Accelerated failure time regression for left truncated and right censored
     data.
-Depends: R (>= 3.1.2), survival (>= 2.37-6)
+Depends:
+    R (>= 3.1.2),
+    survival (>= 2.37-6)
 License: GPL (>= 3)
 LazyData: true
-Suggests: testthat
+Suggests:
+    testthat
+RoxygenNote: 5.0.1
+NeedsCompilation: yes

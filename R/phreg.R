@@ -244,10 +244,11 @@ phreg <- function (formula = formula(data),
             fit <- pchreg2(X,
                            Y,
                            cuts,
-                           offset,
                            strats,
+                           offset,
                            init,
                            control)
+            
     }else{
         fit <- phreg.fit(X,
                          Y,

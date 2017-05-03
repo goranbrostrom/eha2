@@ -1,9 +1,3 @@
----
-title: "README"
-author: "Göran Broström"
-date: '2014-12-14'
-output: html_document
----
 
 # eha2
 

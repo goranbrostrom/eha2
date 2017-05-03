@@ -30,9 +30,9 @@ age.window <- function(dat, window,
         stop(paste(surv[x], " is not a name in the data frame."))
     }
 
-    enter <- dat[, surv.indices[1]]
-    exit <- dat[, surv.indices[2]]
-    event <- dat[, surv.indices[3]]
+    enter <- dat[[surv.indices[1]]]
+    exit <- dat[[surv.indices[2]]]
+    event <- dat[[surv.indices[3]]]
 
     who <- (exit > window[1]) & (enter < window[2])
     if (sum(who) > 0.5){ # Not empty selection!
@@ -47,9 +47,9 @@ age.window <- function(dat, window,
         enter[enter < window[1]] <- window[1]
 
         dat <- dat[who, ]
-        dat[, surv.indices[1]] <- enter
-        dat[, surv.indices[2]] <- exit
-        dat[, surv.indices[3]] <- event
+        dat[surv.indices[1]] <- enter
+        dat[surv.indices[2]] <- exit
+        dat[surv.indices[3]] <- event
     }else{ # Empty selection...
         warning(paste("The age interval", window[1], "-", window[2],
                       "is empty."))

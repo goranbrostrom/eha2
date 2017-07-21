@@ -62,7 +62,7 @@ truncated and right censored data.
 The \code{gompertz} distribution is not included here.
 }
 \examples{
-fit <- phreg(Surv(enter, exti, event) ~ ses, data = mort)
+fit <- phreg(Surv(enter, exit, event) ~ ses.50, data = oldmort)
 fit
 }
 \author{

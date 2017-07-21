@@ -27,7 +27,7 @@ given age interval.
 dat <- data.frame(enter = 0, exit = 5.731, event = 1, x = 2)
 window <- c(2, 5.3)
 dat.trim <- age.window(dat, window)
-export
+
 }
 \seealso{
 \code{\link{cal.window}}.

@@ -32,4 +32,3 @@ which is the hazard function of the standard Gompertz distribution
 \examples{
 hGgompertz(c(1, 3, 5))
 }
-

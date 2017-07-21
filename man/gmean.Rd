@@ -16,4 +16,3 @@ gmean(shape, scale, frail = 0)
 \description{
 Calculates the mean of Gompertz-Gamma distribution.
 }
-

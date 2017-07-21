@@ -18,5 +18,7 @@ License: GPL (>= 3)
 LazyData: true
 Suggests:
     testthat
-RoxygenNote: 5.0.1
+RoxygenNote: 6.0.1
 NeedsCompilation: yes
+URL: https://github.com/goranbrostrom/eha2
+BugReports: https://github.com/goranbrostrom/eha2/issues

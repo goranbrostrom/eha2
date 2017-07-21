@@ -18,12 +18,16 @@
 #' @export
 
 
-pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
+pchreg2 <- function(X, Y, cuts,
+                    strata = rep(1, NROW(Y)),
+                    offset = rep(0, NROW(Y)),
+                    init = rep(0, NCOL(as.matrix(X))),
+                    control = list(eps = 1e-08, maxiter = 15, trace = TRUE)){
     ## Test of stratification of the pch-model ("piecewise constant")
     ## strata \in {1, ..., ns}
 
     nn <- NROW(Y)
-    if (!is.matrix(X)) X <- matrix(X, ncol = 1)
+    if (!is.matrix(X)) X <- as.matrix(X)
     if (NROW(X) != nn) stop("[pchreg2]: error in X")
     if (missing(strata) || is.null(strata)){
         strata <- rep(1, nn)
@@ -37,7 +41,7 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
 
     ns <- length(unique(strata))
     ncov <- NCOL(X) # Assume here that ncov >= 0!
-    
+
     n.ivl <- length(cuts) + 1
     ## Some sane checks .....
     ##cuts <- c(0, cuts, Inf)
@@ -56,11 +60,17 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
             stop("'cuts' must be positive and finite.")
         cuts <- c(0, cuts, Inf)
         n <- n + 1
-        out <- list()
+        out <- vector(mode = "list", length = n)
         indat <- as.data.frame(indat)
         for (i in 1:n){
-            out[[i]] <- age.window(indat, cuts[i:(i+1)])
-            out[[i]]$ivl <- i
+
+            tmp <- age.window(indat, cuts[i:(i+1)])
+            if (is.null(tmp)) {
+                out[[i]] <- indat[0, ]
+            }else{
+                out[[i]] <- tmp
+                out[[i]]$ivl <- i
+            }
             ##out[[i]] <- t(out[[i]]) Needed for old method with unlist.
         }
     ## Y <- matrix(unlist(out), ncol = 5, byrow = TRUE)
@@ -75,7 +85,7 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
 
     if (length(cuts)){
         split <- SurvSplit(Y, cuts)
-        
+
         strat <- strata[split$idx]
         offset <- offset[split$idx]
         X <- X[split$idx, ,drop = FALSE]
@@ -88,29 +98,31 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
         d <- Y[, 3]
         ivl <- rep(1, NROW(Y))
     }
-    
+
     Dtot <- sum(d)
 
     loglik0 <- function(){
-        alpha <- matrix(0, nrow = ns, ncol = n.ivl)
+        alpha <- matrix(NA, nrow = ns, ncol = n.ivl)
         res <- -Dtot
         for (i in seq_len(n.ivl)){
             for (j in 1:ns){
                 indx <- (strat == j) & (ivl == i)
-                D <- sum(d[indx])
-                if (D > 0){
-                    sumT <- sum(T[indx])
-                    alpha[j, i] <- D / sumT 
-                    res <- res + D * (log(D) - log(sumT))
+                if (length(indx)){
+                    D <- sum(d[indx])
+                    if (D > 0){
+                        sumT <- sum(T[indx])
+                        alpha[j, i] <- D / sumT
+                        res <- res + D * (log(D) - log(sumT))
+                    }
                 }
             }
         }
         ##cat("res = ", res, "\n")
         list(loglik = res, hazards = alpha)
     }
-    
+
     loglik <- function(beta){
-        ##cat("beta = ", beta, "\n") 
+        ##cat("beta = ", beta, "\n")
         zb <- offset + X %*% beta
         ##cat("zb = ", zb, "\n")
         tezb <- T * exp(zb)
@@ -122,10 +134,12 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
         for (i in seq_len(n.ivl)){
             for (j in 1:ns){
                 indx <- (strat == j) & (ivl == i)
-                D <- sum(d[indx])
-                ##cat("i = ", i, " j = ", j, " D = ", D, "\n")
-                if (D > 0){
-                    res <- res + D * (log(D) - log(sum(tezb[indx])))
+                if (length(indx)){
+                    D <- sum(d[indx])
+                    ##cat("i = ", i, " j = ", j, " D = ", D, "\n")
+                    if (D > 0){
+                        res <- res + D * (log(D) - log(sum(tezb[indx])))
+                    }
                 }
             }
         }
@@ -140,20 +154,22 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
         res <- drop(d %*% X) # 10 feb 2014
         ##res <- numeric(ncov)
         ##for (j in seq_len(ncov)){
-          ##  res[j] <- sum(d * X[, j]) 
+          ##  res[j] <- sum(d * X[, j])
         ##}
         ##cat("res1[1] = ", res[1], "\n")
         for (i in seq_len(n.ivl)){
             for (j in 1:ns){
                 indx <- (strat == j) & (ivl == i)
-                D <- sum(d[indx])
-                ##cat("i = ", i, " j = ", j, " D = ", D, "\n")
-                if (D > 0){
-                    Stezb <- sum(tezb[indx]) 
-                    for (j in seq_len(ncov)){ # Do smarter!
-                        res[j] <- res[j] -
+                if (length(indx)){
+                    D <- sum(d[indx])
+                    ##cat("i = ", i, " j = ", j, " D = ", D, "\n")
+                    if (D > 0){
+                        Stezb <- sum(tezb[indx])
+                        for (j in seq_len(ncov)){ # Do smarter!
+                            res[j] <- res[j] -
                             D * sum(X[indx, j] * tezb[indx]) /
                              Stezb
+                        }
                     }
                 }
             } # end for (j in ...
@@ -165,19 +181,24 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
     getAlpha <- function(beta){
         ## Note: f = (alpha * exp(zb)^d * exp(-t * alpha * exp(zb))
         tezb <- T * exp(X %*% beta)
-        alpha <- matrix(0, nrow = ns, ncol = n.ivl)
+        alpha <- matrix(NA, nrow = ns, ncol = n.ivl)
         for (i in seq_len(n.ivl)){
             for (j in 1:ns){
                 indx <- (strat == j) & (ivl == i)
-                D <- sum(d[indx])
-                alpha[j, i] <- D / sum(tezb[indx])
+                if (length(indx)){
+                    D <- sum(d[indx])
+                    denom <- sum(tezb[indx])
+                    if (denom > 0){
+                        alpha[j, i] <- D / denom
+                    }
+                }
             }
         }
     alpha
     } # end getAlpha
 
     fit <- loglik0()
-    
+
     if (ncov){
         means <- colMeans(X)
         for (i in seq_len(ncov)){
@@ -185,7 +206,7 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
         }
         beta <- init
         res <- optim(beta, loglik, dloglik,
-                     method = "BFGS", hessian = TRUE, 
+                     method = "BFGS", hessian = TRUE,
                      control = list(fnscale = -1, reltol = 1e-10))
         beta <- res$par
         fit$gradient <- dloglik(beta)
@@ -200,7 +221,7 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
         fit$loglik <- rep(fit$loglik, 2)
         fit$coefficients <- NULL
     }
-    
+
     fit$df <- ncov
     fit$cuts <- cuts
     fit$fail <- FALSE # Optimism...
@@ -215,7 +236,7 @@ pchreg2 <- function(X, Y, cuts, strata, offset, init, control){
         }
         colnames(fit$hazards) <- cn
     }
-    
+
     if (ns > 1) rownames(fit$hazards) <- name.s
     fit$n.strata <- ns
 

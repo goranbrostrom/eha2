@@ -29,10 +29,9 @@ window <- c(2, 5.3)
 dat.trim <- age.window(dat, window)
 export
 }
-\author{
-Göran Broström
-}
 \seealso{
 \code{\link{cal.window}}.
 }
-
+\author{
+Göran Broström
+}

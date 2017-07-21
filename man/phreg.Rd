@@ -68,4 +68,3 @@ fit
 \author{
 Göran Broström
 }
-

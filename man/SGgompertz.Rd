@@ -29,4 +29,3 @@ The survivor function \eqn{S(x)} is defined as
 \examples{
 SGgompertz(c(1, 3, 5))
 }
-

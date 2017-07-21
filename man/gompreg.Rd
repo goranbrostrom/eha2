@@ -16,4 +16,3 @@ gompreg(enter, exit, event)
 \description{
 Maximizes a likelihood for the Gompertz-gamma distribution
 }
-

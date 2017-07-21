@@ -33,10 +33,9 @@ A list
 This function is called by \code{\link{phreg}}, but it can also be directly called by
 a user.
 }
-\author{
-Göran Broström
-}
 \seealso{
 \code{\link{phreg}}.
 }
-
+\author{
+Göran Broström
+}

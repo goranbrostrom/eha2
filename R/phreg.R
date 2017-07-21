@@ -38,7 +38,7 @@
 #' @note The \code{gompertz} distribution is not included here.
 #' @author Göran Broström
 #' @examples
-#' fit <- phreg(Surv(enter, exti, event) ~ ses, data = mort)
+#' fit <- phreg(Surv(enter, exit, event) ~ ses.50, data = oldmort)
 #' fit
 #' @export
 phreg <- function (formula = formula(data),
@@ -248,7 +248,7 @@ phreg <- function (formula = formula(data),
                            offset,
                            init,
                            control)
-            
+
     }else{
         fit <- phreg.fit(X,
                          Y,

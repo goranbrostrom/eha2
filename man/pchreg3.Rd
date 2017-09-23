@@ -4,7 +4,9 @@
 \alias{pchreg3}
 \title{Piecewise constant proportional hazards regression with aggregate}
 \usage{
-pchreg3(X, Y, cuts, strata, offset, init, control)
+pchreg3(X, Y, cuts, strata = rep(1, NROW(Y)), offset = rep(0, NROW(Y)),
+  init = rep(0, NCOL(as.matrix(X))), control = list(eps = 1e-08, maxiter =
+  15, trace = TRUE))
 }
 \arguments{
 \item{X}{The design (covariate) matrix.}

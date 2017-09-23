@@ -1,0 +1,230 @@
+#' Piecewise constant proportional hazards regression with aggregate
+#'
+#' This function is called by \code{\link{phreg}}, but it can
+#' also be directly called by a user.
+#'
+#' @param X The design (covariate) matrix.
+#' @param Y A survival object, the response.
+#' @param cuts Specifies the points in time where the hazard function
+#'    jumps. If omitted, an exponential model is fitted.
+#' @param strata A stratum variable.
+#' @param offset Offset.
+#' @param init Initial regression parameter values.
+#' @param control Controls convergence and output.
+#'
+#' @return A list
+#' @seealso \code{\link{phreg}}.
+#' @author Göran Broström
+#' @export
+
+
+pchreg3 <- function(X, Y, cuts,
+                    strata = rep(1, NROW(Y)),
+                    offset = rep(0, NROW(Y)),
+                    init = rep(0, NCOL(as.matrix(X))),
+                    control = list(eps = 1e-08, maxiter = 15, trace = TRUE)){
+    ## Test of stratification of the pch-model ("piecewise constant")
+    ## strata \in {1, ..., ns}
+
+    nn <- NROW(Y)
+    if (!is.matrix(X)) X <- matrix(X, ncol = 1)
+    if (NROW(X) != nn) stop("[pchreg3]: error in X")
+    if (missing(strata) || is.null(strata)){
+        strata <- rep(1, nn)
+        ns <- 1
+    }else{
+        strata <- factor(strata)
+        name.s <- levels(strata)
+        strata <- as.integer(strata)
+        ns <- max(strata)
+    }
+
+    ns <- length(unique(strata))
+    ncov <- NCOL(X) # Assume here that ncov >= 0!
+
+    n.ivl <- length(cuts) + 1
+    ## Some sane checks .....
+    ##cuts <- c(0, cuts, Inf)
+    if (control$trace){
+        cat("[pchreg3]    ns = ", ns, "\n")
+        cat("[pchreg3] n.ivl = ", n.ivl, "\n")
+    }
+
+    SurvSplit <- function(Y, cuts){
+        if (NCOL(Y) == 2) Y <- cbind(rep(0, NROW(Y)), Y)
+        indat <- cbind(Y, 1:NROW(Y), rep(-1, NROW(Y)))
+        colnames(indat) <- c("enter", "exit", "event", "idx", "ivl")
+        n <- length(cuts)
+        cuts <- sort(cuts)
+        if ((cuts[1] <= 0) || (cuts[n] == Inf))
+            stop("'cuts' must be positive and finite.")
+        cuts <- c(0, cuts, Inf)
+        n <- n + 1
+        out <- list()
+        indat <- as.data.frame(indat)
+        for (i in 1:n){
+            out[[i]] <- age.window(indat, cuts[i:(i+1)])
+            out[[i]]$ivl <- i
+            ##out[[i]] <- t(out[[i]]) Needed for old method with unlist.
+        }
+    ## Y <- matrix(unlist(out), ncol = 5, byrow = TRUE)
+    ## Faster (and cleaner):
+    y <- do.call(rbind, out)
+    colnames(y) <- colnames(indat)
+    list(Y = y[, 1:3],
+         ivl = y[, 5],
+         idx = y[, 4]
+         )
+     }
+
+    if (length(cuts)){
+        split <- SurvSplit(Y, cuts)
+
+        strat <- strata[split$idx]
+        offset <- offset[split$idx]
+        X <- X[split$idx, ,drop = FALSE]
+        T <- split$Y$exit - split$Y$enter
+        d <- split$Y$event
+        ##return(d)
+        ivl <- split$ivl
+        ##return(list(ivl = ivl, strat = strat))
+    }else{
+        strat <- strata
+        T <- Y[, 2] - Y[, 1]
+        d <- Y[, 3]
+        ivl <- rep(1, NROW(Y))
+    }
+
+    Dtot <- sum(d)
+
+    loglik0 <- function(){
+        alpha <- matrix(0, nrow = ns, ncol = n.ivl)
+        res <- -Dtot
+        for (i in seq_len(n.ivl)){
+            for (j in 1:ns){
+                indx <- (strat == j) & (ivl == i)
+                D <- sum(d[indx])
+                ##cat("max(indx) = ", max(indx), ", min(indx) = ", min(indx), "\n")
+                if (D > 0){
+                    sumT <- sum(T[indx])
+                    alpha[j, i] <- D / sumT
+                    res <- res + D * (log(D) - log(sumT))
+                }
+            }
+        }
+        ##cat("res = ", res, "\n")
+        list(loglik = res, hazards = alpha)
+    }
+
+    loglik <- function(beta){
+        ##cat("beta = ", beta, "\n")
+        zb <- offset + X %*% beta
+        ##cat("zb = ", zb, "\n")
+        tezb <- T * exp(zb)
+        ##cat("tezb = ", tezb, "\n")
+        ##res <- sum(d * zb) - Dtot
+        res <- drop(d %*% zb) - Dtot
+        ##cat("res.first = ", res, "\n")
+        ##cat("res1 = ", res, "\n")
+        for (i in seq_len(n.ivl)){
+            for (j in 1:ns){
+                indx <- (strat == j) & (ivl == i)
+                D <- sum(d[indx])
+                ##cat("i = ", i, " j = ", j, " D = ", D, "\n")
+                if (D > 0){
+                    res <- res + D * (log(D) - log(sum(tezb[indx])))
+                }
+            }
+        }
+        ##cat("res = ", res, "\n")
+        res
+    }
+
+    dloglik <- function(beta){
+        zb <- offset + X %*% beta
+        tezb <- T * exp(zb)
+
+        res <- drop(d %*% X) # 10 feb 2014
+        ##res <- numeric(ncov)
+        ##for (j in seq_len(ncov)){
+          ##  res[j] <- sum(d * X[, j])
+        ##}
+        ##cat("res1[1] = ", res[1], "\n")
+        for (i in seq_len(n.ivl)){
+            for (j in 1:ns){
+                indx <- (strat == j) & (ivl == i)
+                D <- sum(d[indx])
+                ##cat("i = ", i, " j = ", j, " D = ", D, "\n")
+                if (D > 0){
+                    Stezb <- sum(tezb[indx])
+                    for (j in seq_len(ncov)){ # Do smarter!
+                        res[j] <- res[j] -
+                            D * sum(X[indx, j] * tezb[indx]) /
+                             Stezb
+                    }
+                }
+            } # end for (j in ...
+        } # end for (i in ...
+        ##cat("res[1] = ", res[1], "\n")
+        res
+    } # end dloglik
+
+    getAlpha <- function(beta){
+        ## Note: f = (alpha * exp(zb)^d * exp(-t * alpha * exp(zb))
+        tezb <- T * exp(X %*% beta)
+        alpha <- matrix(0, nrow = ns, ncol = n.ivl)
+        for (i in seq_len(n.ivl)){
+            for (j in 1:ns){
+                indx <- (strat == j) & (ivl == i)
+                D <- sum(d[indx])
+                alpha[j, i] <- D / sum(tezb[indx])
+            }
+        }
+    alpha
+    } # end getAlpha
+
+    fit <- loglik0()
+
+    if (ncov){
+        means <- colMeans(X)
+        for (i in seq_len(ncov)){
+            X[, i] <- X[, i] - means[i]
+        }
+        beta <- init
+        res <- optim(beta, loglik, dloglik,
+                     method = "BFGS", hessian = TRUE,
+                     control = list(fnscale = -1, reltol = 1e-10))
+        beta <- res$par
+        fit$gradient <- dloglik(beta)
+        ##cat("score = ", deriv, " at solution\n")
+        fit$loglik <- c(fit$loglik, res$value)
+        fit$coefficients <- beta
+        fit$var <- solve(-res$hessian)
+        fit$hazards <- getAlpha(beta)
+        fit$hazards <- fit$hazards * exp(-drop(means %*% fit$coefficients))
+        colnames(fit$var) <- rownames(fit$var) <- colnames(X)
+    }else{# No covariates
+        fit$loglik <- rep(fit$loglik, 2)
+        fit$coefficients <- NULL
+    }
+
+    fit$df <- ncov
+    fit$cuts <- cuts
+    fit$fail <- FALSE # Optimism...
+    cn <- character(n.ivl)
+    if (n.ivl > 1){
+        cn[1] <- paste("(.., ", cuts[1], "]", sep = "")
+        cn[n.ivl] <- paste("(", cuts[n.ivl - 1], ", ...]", sep = "")
+        if (n.ivl > 2){
+            for (i in 2:(n.ivl - 1)){
+                cn[i] <- paste("(", cuts[i-1], ", ", cuts[i], "]", sep = "")
+            }
+        }
+        colnames(fit$hazards) <- cn
+    }
+
+    if (ns > 1) rownames(fit$hazards) <- name.s
+    fit$n.strata <- ns
+
+    fit
+}
